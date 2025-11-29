@@ -1,5 +1,7 @@
 package com.emallspace.social.service.impl;
 
+import io.micrometer.core.instrument.Gauge;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -15,9 +17,15 @@ public class LikeService {
     private StringRedisTemplate redisTemplate;
 
     // BufferTrigger: Key = "userId:postId", Value = 1 (Like) or 0 (Unlike)
-    // Using ConcurrentHashMap for thread safety
     private final Map<String, Integer> buffer = new ConcurrentHashMap<>();
     private static final int BATCH_SIZE = 1000;
+
+    // Evolution 3: Observability
+    public LikeService(MeterRegistry registry) {
+        Gauge.builder("like.buffer.size", buffer, Map::size)
+             .description("Current size of the like buffer")
+             .register(registry);
+    }
 
     public void likePost(Long userId, Long postId, boolean isLike) {
         // 1. Write to Redis immediately for real-time display
